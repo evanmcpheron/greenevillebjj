@@ -129,7 +129,7 @@ export const CheckInDialog = ({
     };
     getCheckInsByRank(user.id, user.rank.belt, user.rank.stripes).then(
       (res) => {
-        console.log(`🚀 ~ checkin.dialog.tsx:138 ~ useEffect ~ res: \n`, res);
+        console.log(`🚀 ~ checkin.dialog.tsx:132 ~ useEffect ~ res: \n`, res);
 
         setCheckinsByRank(res.length);
       }

@@ -1,9 +1,8 @@
 // ThemeProvider.tsx
-import React, { createContext, useContext, useMemo, useState } from "react";
+import React, { createContext, useContext, useState } from "react";
 import type { ReactNode } from "react";
 import {
   createTheme,
-  CssBaseline,
   ThemeProvider as MuiThemeProvider,
   useColorScheme,
   type Theme as MuiTheme,

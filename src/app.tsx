@@ -6,10 +6,12 @@ import { defaultRoutes } from "./services/routes";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import { Container } from "@mui/material";
 import { Navigation } from "./components/common/navigation/navigation.component";
+import { LocalizationProvider } from "@mui/x-date-pickers";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 
 const theme = createTheme({
   colorSchemes: {
-    dark: false,
+    dark: true,
   },
   palette: {
     primary: {
@@ -163,22 +165,24 @@ const App = () => {
     <ErrorBoundary>
       <ThemeProvider theme={theme}>
         <AuthProvider>
-          <Navigation />
-          <Container>
-            <Router>
-              <Routes>
-                {/* <Route path="/" element={<LoginPage />} /> */}
-                {/* <Route path="/login" element={<LoginPage />} /> */}
-                {defaultRoutes.map((route, index) => (
-                  <Route
-                    key={index}
-                    path={route.path}
-                    element={route.element}
-                  />
-                ))}
-              </Routes>
-            </Router>
-          </Container>
+          <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <Navigation />
+            <Container>
+              <Router>
+                <Routes>
+                  {/* <Route path="/" element={<LoginPage />} /> */}
+                  {/* <Route path="/login" element={<LoginPage />} /> */}
+                  {defaultRoutes.map((route, index) => (
+                    <Route
+                      key={index}
+                      path={route.path}
+                      element={route.element}
+                    />
+                  ))}
+                </Routes>
+              </Router>
+            </Container>
+          </LocalizationProvider>
         </AuthProvider>
       </ThemeProvider>
     </ErrorBoundary>

@@ -1,5 +1,4 @@
 import { BeltIcon } from "@/components/common/belt/belt.component";
-import { GreenevilleBJJObject } from "@/types/base.types";
 import {
   Dialog,
   DialogTitle,
@@ -14,51 +13,35 @@ import {
   DialogActions,
   Button,
   Typography,
+  MenuItem,
 } from "@mui/material";
-import { beltChoices } from "../NewMember/new.members.view";
 import { useEffect, useState } from "react";
-import { BeltColor } from "@/components/common/belt/belt.component.styled";
-import { updateDocById } from "@/services/api.service";
-import { firestore } from "@/contexts/auth/auth.context";
-import { doc, getDoc } from "firebase/firestore";
+import { BeltColor, GreenevilleBJJUser } from "@/types/users.types";
+import { updateMemberById } from "@/services/users/users.service";
+import { isAdult } from "@/components/common/belt/all.belts.component";
 
-export async function getMemberById(
-  memberId: string
-): Promise<{ id: string; [key: string]: any } | null> {
-  const memberRef = doc(firestore, "members", memberId);
-
-  try {
-    // 2. Retrieve the document
-    const snap = await getDoc(memberRef);
-    if (!snap.exists()) {
-      console.warn(`No member found with ID ${memberId}`);
-      return null;
-    }
-
-    // 3. Return an object with the ID and data
-    return { id: snap.id, ...snap.data() };
-  } catch (err) {
-    console.error("Error fetching member:", err);
-    throw err;
-  }
+interface PromoteMemberDialogProps {
+  open: boolean;
+  handleClose: () => void;
+  selectedMember: GreenevilleBJJUser;
 }
 
 export const PromoteMemberDialog = ({
   open,
   selectedMember,
   handleClose,
-}: GreenevilleBJJObject) => {
-  const [belt, setBelt] = useState("white");
+}: PromoteMemberDialogProps) => {
+  const [belt, setBelt] = useState(BeltColor.WHITE);
   const [stripes, setStripes] = useState(0);
 
   const reset = () => {
-    setBelt("white");
+    setBelt(BeltColor.WHITE);
     setStripes(0);
   };
 
   useEffect(() => {
-    setBelt(selectedMember?.rank.belt);
-    setStripes(selectedMember?.rank.stripes);
+    setBelt(selectedMember?.belt);
+    setStripes(selectedMember?.stripes);
   }, [selectedMember]);
 
   return (
@@ -74,48 +57,53 @@ export const PromoteMemberDialog = ({
             label="Belt"
             onChange={(e) => setBelt(e.target.value)}
           >
-            {beltChoices}
+            {isAdult(selectedMember.birthday).map((belt) => (
+              <MenuItem value={belt}>
+                <BeltIcon belt={belt} />
+              </MenuItem>
+            ))}
           </Select>
-          {belt !== "red" && belt !== "red_white" && belt !== "red_black" && (
-            <>
-              <FormLabel id="stripes">Stripes</FormLabel>
-              <RadioGroup
-                aria-labelledby="stripes"
-                defaultValue={stripes}
-                name="stripes"
-                row
-                onChange={(e) => setStripes(parseInt(e.target.value))}
-              >
-                {Array.from(
-                  { length: belt === "black" ? 7 : 5 },
-                  (_value, index) => (
-                    <FormControlLabel
-                      key={index}
-                      value={index}
-                      control={<Radio />}
-                      label={index}
-                    />
-                  )
-                )}
-              </RadioGroup>
-            </>
-          )}
+          {belt !== BeltColor.RED &&
+            belt !== BeltColor.RED_WHITE &&
+            belt !== BeltColor.RED_BLACK && (
+              <>
+                <FormLabel id="stripes">Stripes</FormLabel>
+                <RadioGroup
+                  aria-labelledby="stripes"
+                  defaultValue={stripes}
+                  name="stripes"
+                  row
+                  onChange={(e) => setStripes(parseInt(e.target.value))}
+                >
+                  {Array.from(
+                    { length: belt === BeltColor.BLACK ? 7 : 5 },
+                    (_value, index) => (
+                      <FormControlLabel
+                        key={index}
+                        value={index}
+                        control={<Radio />}
+                        label={index}
+                      />
+                    )
+                  )}
+                </RadioGroup>
+              </>
+            )}
         </FormControl>
         <div style={{ display: "flex", justifyContent: "space-around" }}>
           {selectedMember && (
             <div>
               <Typography>Current Belt</Typography>
               <BeltIcon
-                belt={selectedMember?.rank.belt as BeltColor}
-                stripes={selectedMember?.rank.stripes}
+                belt={selectedMember?.belt}
+                stripes={selectedMember?.stripes}
                 scale={3}
               />
             </div>
           )}
           <div>
             <Typography>New Belt</Typography>
-
-            <BeltIcon belt={belt as BeltColor} stripes={stripes} scale={3} />
+            <BeltIcon belt={belt} stripes={stripes} scale={3} />
           </div>
         </div>
       </DialogContent>
@@ -132,18 +120,20 @@ export const PromoteMemberDialog = ({
           variant="contained"
           onClick={() => {
             if (
-              belt === selectedMember.rank.belt &&
-              stripes === selectedMember.rank.stripes
+              belt === selectedMember.belt &&
+              stripes === selectedMember.stripes
             ) {
               reset();
               handleClose();
               return;
             }
             reset();
-            updateDocById("members", selectedMember.id, {
-              rank: { belt, stripes },
+            updateMemberById(selectedMember.id, {
+              belt: belt as BeltColor,
+              stripes,
+            }).then(() => {
+              handleClose();
             });
-            handleClose();
           }}
         >
           Save

@@ -1,8 +1,9 @@
-import { BJJ_BELT_HEX } from "@/components/common/belt/all.belts.component";
+import { isAdult } from "@/components/common/belt/all.belts.component";
+
 import { BeltIcon } from "@/components/common/belt/belt.component";
-import { BeltColor } from "@/components/common/belt/belt.component.styled";
 import { postDoc } from "@/services/api.service";
 import { GreenevilleBJJObject } from "@/types/base.types";
+import { BeltColor } from "@/types/users.types";
 import {
   Box,
   Button,
@@ -20,61 +21,52 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { DatePicker } from "@mui/x-date-pickers";
+import dayjs from "dayjs";
+import { Timestamp } from "firebase/firestore";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-
-export const beltChoices = BJJ_BELT_HEX.map((belt) => (
-  <MenuItem value={belt}>
-    <BeltIcon belt={belt} />
-  </MenuItem>
-));
 
 const NewMembersView: React.FC = () => {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [birthday, setBirthday] = useState("");
+  const [formData, setFormData] = useState({
+    belt: BeltColor.WHITE,
+    stripes: 0,
+    firstName: "",
+    lastName: "",
+    birthday: Timestamp.now(),
+    email: "",
+    phone: "",
+  });
 
   const navigate = useNavigate();
-
-  // Handlers for each field
-  const handleFirstNameChange = (e: GreenevilleBJJObject) =>
-    setFirstName(e.target.value);
-  const handleLastNameChange = (e: GreenevilleBJJObject) =>
-    setLastName(e.target.value);
-  const handleEmailChange = (e: GreenevilleBJJObject) =>
-    setEmail(e.target.value);
-  const handlePhoneChange = (e: GreenevilleBJJObject) =>
-    setPhone(e.target.value);
-  const handleBirthdayChange = (e: GreenevilleBJJObject) =>
-    setBirthday(e.target.value);
 
   const handleSubmit = async (e: GreenevilleBJJObject) => {
     e.preventDefault();
 
     await postDoc("members", {
-      firstName,
-      lastName,
-      email,
-      phone,
-      birthday,
-      rank: formData.rank,
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      email: formData.email,
+      phone: formData.phone,
+      birthday: formData.birthday,
+      belt: formData.belt,
+      stripes: formData.stripes,
       checkins: [],
     });
 
     navigate("/members");
   };
-  const [formData, setFormData] = useState({
-    rank: { belt: "white" as BeltColor, stripes: 0 },
-  });
 
   const handleChange = (event: SelectChangeEvent) => {
     setFormData((prev) => ({
       ...prev,
       rank: {
         belt: event.target.value as BeltColor,
-        stripes: prev.rank.stripes,
+        stripes: prev.stripes,
       },
     }));
   };
@@ -83,7 +75,7 @@ const NewMembersView: React.FC = () => {
     setFormData((prev) => ({
       ...prev,
       rank: {
-        belt: prev.rank.belt,
+        belt: prev.belt,
         stripes: parseInt(event.target.value),
       },
     }));
@@ -102,8 +94,10 @@ const NewMembersView: React.FC = () => {
             margin="normal"
             required
             fullWidth
-            value={firstName}
-            onChange={handleFirstNameChange}
+            value={formData.firstName}
+            onChange={(e) =>
+              setFormData((prev) => ({ ...prev, firstName: e.target.value }))
+            }
           />
           <TextField
             label="Last Name"
@@ -111,9 +105,23 @@ const NewMembersView: React.FC = () => {
             margin="normal"
             required
             fullWidth
-            value={lastName}
-            onChange={handleLastNameChange}
+            value={formData.lastName}
+            onChange={(e) =>
+              setFormData((prev) => ({ ...prev, lastName: e.target.value }))
+            }
           />
+          <RadioGroup defaultValue={"MALE"}>
+            <FormControlLabel
+              value={"MALE"}
+              control={<Radio />}
+              label={"Male"}
+            />
+            <FormControlLabel
+              value={"FEMALE"}
+              control={<Radio />}
+              label={"Female"}
+            />
+          </RadioGroup>
           <TextField
             label="Email"
             type="email"
@@ -121,8 +129,10 @@ const NewMembersView: React.FC = () => {
             margin="normal"
             required
             fullWidth
-            value={email}
-            onChange={handleEmailChange}
+            value={formData.email}
+            onChange={(e) =>
+              setFormData((prev) => ({ ...prev, email: e.target.value }))
+            }
           />
           <TextField
             label="Phone Number"
@@ -131,19 +141,20 @@ const NewMembersView: React.FC = () => {
             margin="normal"
             required
             fullWidth
-            value={phone}
-            onChange={handlePhoneChange}
+            value={formData.phone}
+            onChange={(e) =>
+              setFormData((prev) => ({ ...prev, phone: e.target.value }))
+            }
           />
-          <TextField
-            label="Birthday"
-            type="date"
-            variant="outlined"
-            margin="normal"
-            required
-            fullWidth
-            value={birthday}
-            onChange={handleBirthdayChange}
-            InputLabelProps={{ shrink: true }}
+          <DatePicker
+            sx={{ width: "100%" }}
+            defaultValue={dayjs(formData.birthday.toDate())}
+            onChange={(value) => {
+              setFormData((prev) => ({
+                ...prev,
+                birthday: Timestamp.fromDate(value?.toDate() || new Date()),
+              }));
+            }}
           />
         </Box>
         <Typography>Rank</Typography>
@@ -152,15 +163,19 @@ const NewMembersView: React.FC = () => {
           <Select
             labelId="belt-rank"
             id="belt-rank"
-            value={formData.rank.belt}
+            value={formData.belt}
             label="Belt"
             onChange={handleChange}
           >
-            {beltChoices}
+            {isAdult(formData.birthday).map((belt) => (
+              <MenuItem value={belt}>
+                <BeltIcon belt={belt} />
+              </MenuItem>
+            ))}
           </Select>
-          {formData.rank.belt !== "red" &&
-            formData.rank.belt !== "red_white" &&
-            formData.rank.belt !== "red_black" && (
+          {formData.belt !== BeltColor.RED &&
+            formData.belt !== BeltColor.RED_WHITE &&
+            formData.belt !== BeltColor.RED_BLACK && (
               <>
                 <FormLabel id="stripes">Stripes</FormLabel>
                 <RadioGroup
@@ -171,7 +186,7 @@ const NewMembersView: React.FC = () => {
                   onChange={handleUpdateBelt}
                 >
                   {Array.from(
-                    { length: formData.rank.belt === "black" ? 7 : 5 },
+                    { length: formData.belt === BeltColor.BLACK ? 7 : 5 },
                     (_value, index) => (
                       <FormControlLabel
                         value={index}
@@ -187,11 +202,7 @@ const NewMembersView: React.FC = () => {
         <div
           style={{ width: "100%", display: "flex", justifyContent: "center" }}
         >
-          <BeltIcon
-            belt={formData.rank.belt}
-            stripes={formData.rank.stripes}
-            scale={5}
-          />
+          <BeltIcon belt={formData.belt} stripes={formData.stripes} scale={5} />
         </div>
         <Button
           type="submit"

@@ -1,4 +1,3 @@
-import { readDocBy } from "@/services/api.service";
 import { GreenevilleBJJObject } from "@/types/base.types";
 import {
   Box,
@@ -11,11 +10,14 @@ import {
 
 import { useState } from "react";
 import { CheckInDialog } from "./checkin.dialog";
+import { GreenevilleBJJUser } from "@/types/users.types";
+import { getUserByPhoneNumber } from "@/services/users/users.service";
 
 const CheckIn: React.FC = () => {
   const [phone, setPhone] = useState("");
-  const [userExists, setUserExists] = useState(false);
-  const [existingUser, setExistingUser] = useState(null);
+  const [existingUser, setExistingUser] = useState<GreenevilleBJJUser | null>(
+    null
+  );
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const handleClose = () => {
@@ -29,17 +31,15 @@ const CheckIn: React.FC = () => {
 
   const handleLookup = async (e: GreenevilleBJJObject) => {
     e.preventDefault();
-    const response = await readDocBy("members", "phone", phone);
-
-    if (response) {
-      setExistingUser(response[0]);
-      setDialogOpen(true);
-      setUserExists(true);
-    } else {
-      setUserExists(false);
-      setExistingUser(null);
-      console.log("TODO: error notification here");
-    }
+    getUserByPhoneNumber(phone).then((response) => {
+      if (response) {
+        setExistingUser(response[0]);
+        setDialogOpen(true);
+      } else {
+        setExistingUser(null);
+        console.log("TODO: error notification here");
+      }
+    });
   };
 
   return (
@@ -63,11 +63,11 @@ const CheckIn: React.FC = () => {
             Lookup
           </Button>
         </Box>
-        {userExists && (
+        {existingUser && (
           <CheckInDialog
             user={existingUser}
             handleClose={handleClose}
-            dialogOpen={dialogOpen}
+            open={dialogOpen}
           />
         )}
       </Paper>

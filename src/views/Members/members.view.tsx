@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Table,
   TableBody,
@@ -10,39 +10,33 @@ import {
   Button,
   Typography,
   CircularProgress,
+  IconButton,
+  Dialog,
+  DialogContent,
+  DialogActions,
 } from "@mui/material";
-import { firestore } from "@/contexts/auth/auth.context";
-import { collection, getDocs } from "firebase/firestore";
-import { GreenevilleBJJObject } from "@/types/base.types";
 import { BeltIcon } from "@/components/common/belt/belt.component";
 import { PromoteMemberDialog } from "./members.promote.dialog.component";
+import { useMembers } from "@/hooks/members.hooks";
+import { GreenevilleBJJUser } from "@/types/users.types";
+import DeleteIcon from "@mui/icons-material/Delete";
+import EditIcon from "@mui/icons-material/Edit";
+import { deleteMemberById } from "@/services/users/users.service";
 
 export default function Members() {
-  const [members, setMembers] = useState<GreenevilleBJJObject[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showPromotionDialog, setShowPromotionDialog] = useState(false);
-  const [selectedMember, setSelectedMember] = useState<string | null>(null);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const deleteMemberByIdRef = useRef("");
+  const [selectedMember, setSelectedMember] =
+    useState<GreenevilleBJJUser | null>(null);
+
+  const { fetchMembers, allMembers, isLoading } = useMembers();
 
   useEffect(() => {
-    const fetchMembers = async () => {
-      try {
-        const col = collection(firestore, "members");
-        const snapshot = await getDocs(col);
-        const data = snapshot.docs.map((d) => ({
-          id: d.id,
-          ...d.data(),
-        })) as GreenevilleBJJObject[];
-        setMembers(data);
-      } catch (err) {
-        console.error("Error loading members:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchMembers();
   }, [selectedMember]);
 
-  const handlePromote = (member: GreenevilleBJJObject) => {
+  const handlePromote = (member: GreenevilleBJJUser) => {
     setSelectedMember(member);
     setShowPromotionDialog(true);
   };
@@ -52,7 +46,7 @@ export default function Members() {
     setSelectedMember(null);
   };
 
-  if (loading) {
+  if (isLoading) {
     return <CircularProgress />;
   }
 
@@ -65,42 +59,86 @@ export default function Members() {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>First Name</TableCell>
-              <TableCell>Email</TableCell>
-              <TableCell>Phone</TableCell>
-              <TableCell>Rank</TableCell>
-              <TableCell>Actions</TableCell>
+              <TableCell align="left">Name</TableCell>
+              <TableCell align="left">Email</TableCell>
+              <TableCell align="left">Phone</TableCell>
+              <TableCell align="left">Rank</TableCell>
+              <TableCell align="left">Actions</TableCell>
+
+              <TableCell align="right">
+                <DeleteIcon />
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {members.map((member) => (
-              <TableRow key={member.id}>
-                <TableCell>
-                  {member.firstName} {member.lastName}
-                </TableCell>
-                <TableCell>{member.email}</TableCell>
-                <TableCell>{member.phone}</TableCell>
-                <TableCell>
-                  <BeltIcon
-                    belt={member.rank.belt}
-                    stripes={member.rank.stripes}
-                  />
-                </TableCell>
-                <TableCell>
-                  <Button
-                    variant="contained"
-                    size="small"
-                    onClick={() => handlePromote(member)}
-                  >
-                    Promote
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
+            {allMembers.map((member: GreenevilleBJJUser) => {
+              return (
+                <TableRow key={member.id}>
+                  <TableCell align="left">
+                    {member.firstName} {member.lastName}
+                  </TableCell>
+                  <TableCell align="left">{member.email}</TableCell>
+                  <TableCell align="left">{member.phone}</TableCell>
+                  <TableCell align="left">
+                    <BeltIcon belt={member.belt} stripes={member.stripes} />
+                  </TableCell>
+                  <TableCell align="left">
+                    <Button
+                      variant="contained"
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handlePromote(member);
+                      }}
+                    >
+                      Promote
+                    </Button>
+                  </TableCell>
+
+                  <TableCell align="right">
+                    <IconButton
+                      aria-label="delete"
+                      color="error"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteMemberByIdRef.current = member.id;
+                        setShowDeleteConfirmation(true);
+                      }}
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </TableContainer>
-
+      <Dialog open={showDeleteConfirmation}>
+        <DialogContent>
+          Are you sure you want to delete this user? This cannot be undone.
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowDeleteConfirmation(false)}>
+            Cancel
+          </Button>
+          <Button
+            color="error"
+            onClick={() => {
+              deleteMemberById(deleteMemberByIdRef.current)
+                .then(() => {
+                  fetchMembers();
+                })
+                .finally(() => {
+                  deleteMemberByIdRef.current = "";
+                  setShowDeleteConfirmation(false);
+                });
+            }}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
       {selectedMember && (
         <PromoteMemberDialog
           open={showPromotionDialog}

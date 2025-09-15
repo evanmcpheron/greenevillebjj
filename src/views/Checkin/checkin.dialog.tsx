@@ -4,14 +4,8 @@ import {
   serverTimestamp,
   collection,
   addDoc,
-  getDocs,
-  limit,
-  orderBy,
-  query,
-  where,
 } from "firebase/firestore";
 import { firestore } from "@/contexts/auth/auth.context";
-import { GreenevilleBJJObject } from "@/types/base.types";
 import {
   Dialog,
   DialogActions,
@@ -23,85 +17,25 @@ import {
   Stack,
 } from "@mui/material";
 import { BeltIcon } from "@/components/common/belt/belt.component";
+import {
+  getMostRecentCheckIn,
+  getCheckInsByRank,
+  getCheckInsMonthToDate,
+  getLastMonthCheckIns,
+} from "@/services/users/users.service";
+import { GreenevilleBJJUser } from "@/types/users.types";
 
-async function getCheckInsMonthToDate(userId: string) {
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-  const checkinsCol = collection(firestore, "members", userId, "checkins");
-  const q = query(
-    checkinsCol,
-    where("checkedAt", ">=", startOfMonth),
-    where("checkedAt", "<=", now),
-    orderBy("checkedAt", "desc")
-  );
-
-  const snap = await getDocs(q);
-  return snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-}
-
-async function getLastMonthCheckIns(userId: string) {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
-  const lastMonth = month === 0 ? 11 : month - 1;
-  const lastMonthYear = month === 0 ? year - 1 : year;
-
-  const start = new Date(lastMonthYear, lastMonth, 1);
-  const end = new Date(year, month, 0, 23, 59, 59, 999);
-
-  const checkinsCol = collection(firestore, "members", userId, "checkins");
-  const q = query(
-    checkinsCol,
-    where("checkedAt", ">=", start),
-    where("checkedAt", "<=", end),
-    orderBy("checkedAt", "desc")
-  );
-
-  const snap = await getDocs(q);
-  return snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-}
-
-const getMostRecentCheckIn = async (userId: string): Promise<any> => {
-  const checkinsCol = collection(firestore, "members", userId, "checkins");
-
-  const q = query(checkinsCol, orderBy("checkedAt", "desc"), limit(1));
-
-  const snap = await getDocs(q);
-
-  if (snap.empty) {
-    console.log("No check-ins found for member", userId);
-    return null;
-  }
-
-  const doc = snap.docs[0];
-  return {
-    id: doc.id,
-    ...doc.data(),
-  };
-};
-
-async function getCheckInsByRank(
-  userId: string,
-  belt: string,
-  stripes: number
-) {
-  const checkinsCol = collection(firestore, "members", userId, "checkins");
-  const q = query(
-    checkinsCol,
-    where("belt", "==", belt),
-    where("stripes", "==", stripes)
-  );
-
-  const snap = await getDocs(q);
-  return snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+interface CheckInDialogProps {
+  open: boolean;
+  handleClose: () => void;
+  user: GreenevilleBJJUser;
 }
 
 export const CheckInDialog = ({
   user,
   handleClose,
-  dialogOpen,
-}: GreenevilleBJJObject) => {
+  open,
+}: CheckInDialogProps) => {
   const [checkedInToday, setCheckedInToday] = useState(false);
   const [monthToDateCheckins, setMonthToDateCheckins] = useState(0);
   const [lastMonthCheckins, setLastMonthCheckins] = useState(0);
@@ -127,13 +61,11 @@ export const CheckInDialog = ({
         setCheckedInToday(false);
       }
     };
-    getCheckInsByRank(user.id, user.rank.belt, user.rank.stripes).then(
-      (res) => {
-        console.log(`🚀 ~ checkin.dialog.tsx:132 ~ useEffect ~ res: \n`, res);
+    getCheckInsByRank(user.id, user.belt, user.stripes).then((res) => {
+      console.log(`🚀 ~ checkin.dialog.tsx:65 ~ useEffect ~ res: \n`, res);
 
-        setCheckinsByRank(res.length);
-      }
-    );
+      setCheckinsByRank(res.length);
+    });
     getCheckInsMonthToDate(user.id).then((res) => {
       setMonthToDateCheckins(res.length);
     });
@@ -148,13 +80,13 @@ export const CheckInDialog = ({
 
     await addDoc(checkinsCol, {
       checkedAt: serverTimestamp(),
-      belt: user.rank.belt,
-      stripes: user.rank.stripes,
+      belt: user.belt,
+      stripes: user.stripes,
     });
   };
 
   return (
-    <Dialog open={dialogOpen} onClose={handleClose} fullWidth maxWidth="sm">
+    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
       <DialogTitle>Check In</DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2} alignItems="center" sx={{ py: 2 }}>
@@ -168,11 +100,7 @@ export const CheckInDialog = ({
             Welcome back, {user.firstName}!
           </Typography>
 
-          <BeltIcon
-            belt={user.rank.belt}
-            stripes={user.rank.stripes}
-            scale={3}
-          />
+          <BeltIcon belt={user.belt} stripes={user.stripes} scale={3} />
 
           <Stack spacing={1} width="100%">
             <Typography>
